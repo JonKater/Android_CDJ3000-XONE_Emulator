@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Jog Wheel Outer Rim -->
+    <path
+        android:pathData="M54,54m-32,0a32,32 0 1,0 64,0a32,32 0 1,0 -64,0"
+        android:strokeWidth="2.5"
+        android:strokeColor="#3F4654"
+        android:fillColor="#181A1F" />
+    <!-- Cyan LED Tracking Halo Ring -->
+    <path
+        android:pathData="M54,54m-27,0a27,27 0 1,0 54,0a27,27 0 1,0 -54,0"
+        android:strokeWidth="1.8"
+        android:strokeColor="#00E5FF"
+        android:fillColor="#111317" />
+    <!-- Vinyl Grooves -->
+    <path
+        android:pathData="M54,54m-21,0a21,21 0 1,0 42,0a21,21 0 1,0 -42,0"
+        android:strokeWidth="0.8"
+        android:strokeColor="#252A34"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M54,54m-16,0a16,16 0 1,0 32,0a16,16 0 1,0 -32,0"
+        android:strokeWidth="0.8"
+        android:strokeColor="#2D323E"
+        android:fillColor="#00000000" />
+    <!-- Aluminum Center Platter Cap -->
+    <path
+        android:pathData="M54,54m-11,0a11,11 0 1,0 22,0a11,11 0 1,0 -22,0">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="43"
+                android:startY="43"
+                android:endX="65"
+                android:endY="65"
+                android:type="linear">
+                <item android:color="#4A5263" android:offset="0.0" />
+                <item android:color="#21252C" android:offset="1.0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Traktor-style Center Crosshair / Spindle -->
+    <path
+        android:pathData="M54,47L54,61M47,54L61,54"
+        android:strokeWidth="1.8"
+        android:strokeColor="#FFFFFF" />
+    <path
+        android:pathData="M54,54m-3,0a3,3 0 1,0 6,0a3,3 0 1,0 -6,0"
+        android:fillColor="#FF5722" />
+    <!-- High-visibility Cue Indicator Needle -->
+    <path
+        android:pathData="M54,23L56,29L52,29Z"
+        android:fillColor="#FF7700" />
+</vector>

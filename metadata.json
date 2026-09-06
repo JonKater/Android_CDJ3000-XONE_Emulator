@@ -1,0 +1,6 @@
+{
+  "name": "CDJ & Xone DJ",
+  "description": "Professional DJ mixing application inspired by Pioneer CDJ-3000 multi-players and Allen & Heath Xone:96 analogue mixer, featuring 4-band British EQ, dual VCF filter bank, on-jog LCD displays, 3-band color waveforms, and 8 hot cues.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
