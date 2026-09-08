@@ -49,8 +49,34 @@ class AudioTrackDeck(
     var jogFeel: Float = 0.5f // 0.0 (Light) to 1.0 (Heavy)
     var vinylSpeedAdjust: Float = 0.5f
     var quantizeActive: Boolean = true
+    var snapActive: Boolean = true
     var slipModeActive: Boolean = false
     private var slipSamplePos: Double = 0.0
+
+    private var pendingSeekSamplePos: Long? = null
+    private var actionBeatSampleThreshold: Long = -1L
+
+    fun getNearestBeatSample(samplePos: Double): Long {
+        val samplesPerBeat = sampleRate * 60.0 / bpm
+        val beatIndex = round(samplePos / samplesPerBeat)
+        return (beatIndex * samplesPerBeat).toLong().coerceIn(0L, totalSamples)
+    }
+
+    fun getNextBeatSample(samplePos: Double): Long {
+        val samplesPerBeat = sampleRate * 60.0 / bpm
+        val beatIndex = ceil(samplePos / samplesPerBeat)
+        return (beatIndex * samplesPerBeat).toLong().coerceIn(0L, totalSamples)
+    }
+
+    fun seekToMsQuantized(ms: Long) {
+        val targetSample = ((ms / 1000.0) * sampleRate).toLong().coerceIn(0L, totalSamples)
+        if (quantizeActive && isPlaying) {
+            actionBeatSampleThreshold = getNextBeatSample(currentSamplePos)
+            pendingSeekSamplePos = targetSample
+        } else {
+            currentSamplePos = targetSample.toDouble()
+        }
+    }
 
     // Signal chain
     var gain: Float = 1.0f // 0.0 to 2.0
@@ -196,7 +222,12 @@ class AudioTrackDeck(
         val samplesPerBeat = sampleRate * 60.0 / bpm
         val loopLengthSamples = (samplesPerBeat * beats).toLong()
 
-        loopStartSample = currentSamplePos.toLong()
+        if (quantizeActive) {
+            loopStartSample = getNearestBeatSample(currentSamplePos)
+        } else {
+            loopStartSample = currentSamplePos.toLong()
+        }
+        
         loopEndSample = (loopStartSample + loopLengthSamples).coerceAtMost(totalSamples)
         isLooping = true
     }
@@ -322,6 +353,12 @@ class AudioTrackDeck(
         // Update jog rotation visual feedback during playback
         if (!isScratching && isPlaying) {
             jogWheelAngleDeg = (jogWheelAngleDeg + (speedMultiplier * 0.4).toFloat()) % 360f
+        }
+
+        // Apply Quantize scheduled seeks
+        if (pendingSeekSamplePos != null && currentSamplePos >= actionBeatSampleThreshold) {
+            currentSamplePos = pendingSeekSamplePos!!.toDouble()
+            pendingSeekSamplePos = null
         }
 
         // Handle Looping

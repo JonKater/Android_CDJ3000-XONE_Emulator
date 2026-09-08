@@ -51,6 +51,10 @@ fun WaveformView(
     height: Dp = 95.dp,
     pitchPercent: Float = 0.0f,
     quantizeActive: Boolean = true,
+    snapActive: Boolean = true,
+    phraseSyncActive: Boolean = false,
+    phraseBeat: Int = 1,
+    phraseBar: Int = 1,
     masterTempoActive: Boolean = false,
     slipActive: Boolean = false
 ) {
@@ -107,11 +111,72 @@ fun WaveformView(
                 )
             }
 
-            // CDJ-3000 Badges: QUANTIZE, MASTER TEMPO, SLIP, KEY, BPM, REMAIN TIME
+            // CDJ-3000 Badges: QUANTIZE, SNAP, MT, SLIP, KEY, BPM, REMAIN TIME
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                // Phrase Meter
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    modifier = Modifier
+                        .background(Color(0xFF14171E), RoundedCornerShape(2.dp))
+                        .border(0.5.dp, Color(0xFF283244), RoundedCornerShape(2.dp))
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "BAR $phraseBar",
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        color = CdjCueAmber,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Text(
+                        text = "$phraseBeat.4",
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                if (phraseSyncActive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(CdjWaveformHighBlue.copy(alpha = 0.2f))
+                            .border(0.7.dp, CdjWaveformHighBlue, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 3.dp, vertical = 0.5.dp)
+                    ) {
+                        Text(
+                            text = "PHRASE",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            color = CdjWaveformHighBlue,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
+                if (snapActive) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(CdjPlayGreen.copy(alpha = 0.2f))
+                            .border(0.7.dp, CdjPlayGreen, RoundedCornerShape(2.dp))
+                            .padding(horizontal = 3.dp, vertical = 0.5.dp)
+                    ) {
+                        Text(
+                            text = "S",
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            color = CdjPlayGreen,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+
                 if (quantizeActive) {
                     Box(
                         modifier = Modifier

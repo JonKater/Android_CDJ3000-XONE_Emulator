@@ -587,6 +587,9 @@ fun VerticalChannelFader(
     modifier: Modifier = Modifier,
     height: Dp = 75.dp
 ) {
+    val currentValue by rememberUpdatedState(value)
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
@@ -604,11 +607,14 @@ fun VerticalChannelFader(
                 .width(32.dp)
                 .height(height)
                 .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragStart = { dragAccumulator = currentValue }
+                    ) { change, dragAmount ->
                         change.consume()
                         // Moving up increases volume (0 at bottom, 1 at top)
                         val delta = -dragAmount.y / size.height
-                        val newVal = (value + delta).coerceIn(0f, 1f)
+                        dragAccumulator += delta
+                        val newVal = dragAccumulator.coerceIn(0f, 1f)
                         onValueChange(newVal)
                     }
                 },
@@ -675,6 +681,9 @@ fun HorizontalCrossfader(
     onCurveToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val currentValue by rememberUpdatedState(value)
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -730,10 +739,13 @@ fun HorizontalCrossfader(
                 .height(28.dp)
                 .testTag("crossfader_slider")
                 .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragStart = { dragAccumulator = currentValue }
+                    ) { change, dragAmount ->
                         change.consume()
                         val delta = dragAmount.x / size.width
-                        val newVal = (value + delta).coerceIn(0f, 1f)
+                        dragAccumulator += delta
+                        val newVal = dragAccumulator.coerceIn(0f, 1f)
                         onValueChange(newVal)
                     }
                 },

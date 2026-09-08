@@ -266,16 +266,37 @@ class AudioEngine(val sampleRate: Int = 44100) {
     /**
      * Beat Sync Engine: Syncs slave deck BPM and phase to master deck
      */
-    fun syncDecks(masterDeck: AudioTrackDeck, slaveDeck: AudioTrackDeck) {
-        slaveDeck.bpm = masterDeck.currentEffectiveBpm
-        slaveDeck.pitchPercent = 0.0
+    fun syncDecks(masterDeck: AudioTrackDeck, slaveDeck: AudioTrackDeck, usePhraseSync: Boolean = false) {
+        // 1. Match tempos (Effective BPM)
+        val targetBpm = masterDeck.currentEffectiveBpm
+        // pitchPercent = ((targetBpm / slaveDeck.bpm) - 1.0) * 100.0
+        slaveDeck.pitchPercent = ((targetBpm / slaveDeck.bpm) - 1.0) * 100.0
 
-        // Phase alignment
-        val masterPhase = (masterDeck.positionMs % (60000.0 / masterDeck.currentEffectiveBpm))
-        val slaveBeatDuration = 60000.0 / slaveDeck.bpm
-        val currentSlaveBeat = slaveDeck.positionMs / slaveBeatDuration.toLong()
-        val targetMs = (currentSlaveBeat * slaveBeatDuration + masterPhase).toLong()
-        slaveDeck.seekToMs(targetMs)
+        // 2. Align Phases (using native file time, independent of pitch)
+        val masterNativeMsPerBeat = 60000.0 / masterDeck.bpm
+        val slaveNativeMsPerBeat = 60000.0 / slaveDeck.bpm
+
+        if (usePhraseSync) {
+            val phraseBeats = 16.0
+            val masterNativeMsPerPhrase = masterNativeMsPerBeat * phraseBeats
+            val slaveNativeMsPerPhrase = slaveNativeMsPerBeat * phraseBeats
+            
+            // Phase (0.0 to 1.0) within the current phrase
+            val masterPhase = (masterDeck.positionMs % masterNativeMsPerPhrase) / masterNativeMsPerPhrase
+            
+            val currentSlavePhrase = kotlin.math.floor(slaveDeck.positionMs / slaveNativeMsPerPhrase)
+            val targetMs = (currentSlavePhrase * slaveNativeMsPerPhrase + (masterPhase * slaveNativeMsPerPhrase)).toLong()
+            
+            slaveDeck.seekToMsQuantized(targetMs)
+        } else {
+            // Classic Beat Sync (align only to quarter-note)
+            val masterPhase = (masterDeck.positionMs % masterNativeMsPerBeat) / masterNativeMsPerBeat
+            
+            val currentSlaveBeat = kotlin.math.floor(slaveDeck.positionMs / slaveNativeMsPerBeat)
+            val targetMs = (currentSlaveBeat * slaveNativeMsPerBeat + (masterPhase * slaveNativeMsPerBeat)).toLong()
+            
+            slaveDeck.seekToMs(targetMs)
+        }
     }
 
     fun toggleRecording(): Boolean {

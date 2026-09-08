@@ -15,6 +15,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import kotlin.math.max
 
 private val cdjHotCueColors = listOf(
@@ -65,6 +66,10 @@ data class DeckUiState(
     val vinylSpeed: Float = 0.5f,
     val quantizeActive: Boolean = true,
     val slipModeActive: Boolean = false,
+    val snapActive: Boolean = true,
+    val phraseSyncActive: Boolean = false,
+    val phraseBar: Int = 1,
+    val phraseBeat: Int = 1,
     val gainNorm: Float = 0.5f,
     // Allen & Heath Xone:96 4-Band EQ
     val eqHighNorm: Float = 0.5f,
@@ -154,6 +159,8 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
     // Loaded tracks tracking
     private var loadedTrackA: TrackEntity? = null
     private var loadedTrackB: TrackEntity? = null
+    private var cueCollectJobA: Job? = null
+    private var cueCollectJobB: Job? = null
 
     init {
         val db = DjDatabase.getDatabase(application)
@@ -206,9 +213,28 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun updateDecksTelemetry() {
         val dA = audioEngine.deckA
+        val dB = audioEngine.deckB
+
+        // Maintain BPM Lock if Sync is active
+        if (_deckAState.value.isSyncActive && !dA.isScratching) {
+            val targetBpm = dB.currentEffectiveBpm
+            if (dA.bpm > 0) {
+                dA.pitchPercent = ((targetBpm / dA.bpm) - 1.0) * 100.0
+            }
+        } else if (_deckBState.value.isSyncActive && !dB.isScratching) {
+            val targetBpm = dA.currentEffectiveBpm
+            if (dB.bpm > 0) {
+                dB.pitchPercent = ((targetBpm / dB.bpm) - 1.0) * 100.0
+            }
+        }
+
         val durA = max(1L, dA.durationMs)
         val posA = dA.positionMs
         val progA = (posA.toFloat() / durA).coerceIn(0f, 1f)
+        
+        val beatsA = if (dA.bpm > 0) posA / (60000.0 / dA.bpm) else 0.0
+        val beatInBarA = (beatsA.toLong() % 4).toInt() + 1
+        val barInPhraseA = ((beatsA.toLong() / 4) % 8).toInt() + 1
 
         _deckAState.update {
             it.copy(
@@ -223,14 +249,21 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
                 pitchPercent = dA.pitchPercent.toFloat(),
                 peakMeter = audioEngine.meterDeckA,
                 isLooping = dA.isLooping,
-                loopBeats = dA.loopBeatLength
+                loopBeats = dA.loopBeatLength,
+                phraseBeat = beatInBarA,
+                phraseBar = barInPhraseA,
+                snapActive = dA.snapActive,
+                quantizeActive = dA.quantizeActive
             )
         }
 
-        val dB = audioEngine.deckB
         val durB = max(1L, dB.durationMs)
         val posB = dB.positionMs
         val progB = (posB.toFloat() / durB).coerceIn(0f, 1f)
+
+        val beatsB = if (dB.bpm > 0) posB / (60000.0 / dB.bpm) else 0.0
+        val beatInBarB = (beatsB.toLong() % 4).toInt() + 1
+        val barInPhraseB = ((beatsB.toLong() / 4) % 8).toInt() + 1
 
         _deckBState.update {
             it.copy(
@@ -245,7 +278,11 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
                 pitchPercent = dB.pitchPercent.toFloat(),
                 peakMeter = audioEngine.meterDeckB,
                 isLooping = dB.isLooping,
-                loopBeats = dB.loopBeatLength
+                loopBeats = dB.loopBeatLength,
+                phraseBeat = beatInBarB,
+                phraseBar = barInPhraseB,
+                snapActive = dB.snapActive,
+                quantizeActive = dB.quantizeActive
             )
         }
 
@@ -258,43 +295,50 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun loadTrackToDeck(track: TrackEntity, deckId: String) {
-        val deck = if (deckId == "A") audioEngine.deckA else audioEngine.deckB
-        deck.loadProceduralTrack(track.bpm, track.genre, track.initialKey)
+        viewModelScope.launch(Dispatchers.Default) {
+            val deck = if (deckId == "A") audioEngine.deckA else audioEngine.deckB
+            deck.loadProceduralTrack(track.bpm, track.genre, track.initialKey)
 
-        val points = track.waveformData.split(",").mapNotNull { it.trim().toFloatOrNull() }
+            val points = track.waveformData.split(",").mapNotNull { it.trim().toFloatOrNull() }
 
-        if (deckId == "A") {
-            loadedTrackA = track
-            _deckAState.update {
-                it.copy(
-                    trackTitle = track.title,
-                    artist = track.artist,
-                    baseBpm = track.bpm,
-                    currentBpm = track.bpm,
-                    musicalKey = track.initialKey,
-                    durationMs = track.durationMs,
-                    waveformPoints = points
-                )
-            }
-        } else {
-            loadedTrackB = track
-            _deckBState.update {
-                it.copy(
-                    trackTitle = track.title,
-                    artist = track.artist,
-                    baseBpm = track.bpm,
-                    currentBpm = track.bpm,
-                    musicalKey = track.initialKey,
-                    durationMs = track.durationMs,
-                    waveformPoints = points
-                )
-            }
-        }
-
-        // Fetch hot cues for this track
-        viewModelScope.launch {
-            repository.getCuePointsForTrack(track.id).collect { cues ->
-                updateDeckHotCues(deckId, cues)
+            if (deckId == "A") {
+                loadedTrackA = track
+                _deckAState.update {
+                    it.copy(
+                        trackTitle = track.title,
+                        artist = track.artist,
+                        baseBpm = track.bpm,
+                        currentBpm = track.bpm,
+                        musicalKey = track.initialKey,
+                        durationMs = track.durationMs,
+                        waveformPoints = points
+                    )
+                }
+                cueCollectJobA?.cancel()
+                cueCollectJobA = launch {
+                    repository.getCuePointsForTrack(track.id).collect { cues ->
+                        updateDeckHotCues(deckId, cues)
+                    }
+                }
+            } else {
+                loadedTrackB = track
+                _deckBState.update {
+                    it.copy(
+                        trackTitle = track.title,
+                        artist = track.artist,
+                        baseBpm = track.bpm,
+                        currentBpm = track.bpm,
+                        musicalKey = track.initialKey,
+                        durationMs = track.durationMs,
+                        waveformPoints = points
+                    )
+                }
+                cueCollectJobB?.cancel()
+                cueCollectJobB = launch {
+                    repository.getCuePointsForTrack(track.id).collect { cues ->
+                        updateDeckHotCues(deckId, cues)
+                    }
+                }
             }
         }
     }
@@ -347,12 +391,15 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun sync(deckId: String) {
+        val usePhraseSync = if (deckId == "A") _deckAState.value.phraseSyncActive else _deckBState.value.phraseSyncActive
         if (deckId == "A") {
-            audioEngine.syncDecks(masterDeck = audioEngine.deckB, slaveDeck = audioEngine.deckA)
-            _deckAState.update { it.copy(isSyncActive = true) }
+            val isActive = !_deckAState.value.isSyncActive
+            if (isActive) audioEngine.syncDecks(masterDeck = audioEngine.deckB, slaveDeck = audioEngine.deckA, usePhraseSync)
+            _deckAState.update { it.copy(isSyncActive = isActive) }
         } else {
-            audioEngine.syncDecks(masterDeck = audioEngine.deckA, slaveDeck = audioEngine.deckB)
-            _deckBState.update { it.copy(isSyncActive = true) }
+            val isActive = !_deckBState.value.isSyncActive
+            if (isActive) audioEngine.syncDecks(masterDeck = audioEngine.deckA, slaveDeck = audioEngine.deckB, usePhraseSync)
+            _deckBState.update { it.copy(isSyncActive = isActive) }
         }
     }
 
@@ -365,16 +412,26 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
 
         if (cue != null && cue.isSet) {
             // Jump to cue position
-            deck.seekToMs(cue.positionMs)
+            if (deck.quantizeActive && deck.isPlaying) {
+                deck.seekToMsQuantized(cue.positionMs)
+            } else {
+                deck.seekToMs(cue.positionMs)
+            }
         } else if (loadedTrack != null) {
-            // Set current position as new Hot Cue
+            // Set current position as new Hot Cue (with Snap if active)
+            var targetSample = deck.currentSamplePos
+            if (deck.snapActive) {
+                targetSample = deck.getNearestBeatSample(deck.currentSamplePos).toDouble()
+            }
+            val posMs = ((targetSample / deck.sampleRate) * 1000).toLong()
+
             val color = cdjHotCueColors.getOrElse(cueIndex - 1) { "#00E5FF" }
             val label = cdjHotCueLabels.getOrElse(cueIndex - 1) { ('A' + cueIndex - 1).toString() }
             viewModelScope.launch {
                 repository.setCuePoint(
                     trackId = loadedTrack.id,
                     cueIndex = cueIndex,
-                    positionMs = deck.positionMs,
+                    positionMs = posMs,
                     colorHex = color
                 )
             }
@@ -406,6 +463,18 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
         deck.quantizeActive = !deck.quantizeActive
         if (deckId == "A") _deckAState.update { it.copy(quantizeActive = deck.quantizeActive) }
         else _deckBState.update { it.copy(quantizeActive = deck.quantizeActive) }
+    }
+
+    fun toggleSnap(deckId: String) {
+        val deck = if (deckId == "A") audioEngine.deckA else audioEngine.deckB
+        deck.snapActive = !deck.snapActive
+        if (deckId == "A") _deckAState.update { it.copy(snapActive = deck.snapActive) }
+        else _deckBState.update { it.copy(snapActive = deck.snapActive) }
+    }
+
+    fun togglePhraseSync(deckId: String) {
+        if (deckId == "A") _deckAState.update { it.copy(phraseSyncActive = !it.phraseSyncActive) }
+        else _deckBState.update { it.copy(phraseSyncActive = !it.phraseSyncActive) }
     }
 
     fun toggleSlipMode(deckId: String) {
@@ -448,11 +517,15 @@ class DjViewModel(application: Application) : AndroidViewModel(application) {
     fun setPitchPercent(deckId: String, percent: Float) {
         val deck = if (deckId == "A") audioEngine.deckA else audioEngine.deckB
         deck.pitchPercent = percent.toDouble()
+        if (deckId == "A") _deckAState.update { it.copy(isSyncActive = false) }
+        else _deckBState.update { it.copy(isSyncActive = false) }
     }
 
     fun resetPitch(deckId: String) {
         val deck = if (deckId == "A") audioEngine.deckA else audioEngine.deckB
         deck.pitchPercent = 0.0
+        if (deckId == "A") _deckAState.update { it.copy(isSyncActive = false) }
+        else _deckBState.update { it.copy(isSyncActive = false) }
     }
 
     fun pitchBend(deckId: String, direction: Float) {

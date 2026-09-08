@@ -41,10 +41,16 @@ fun TransportBar(
     isPlaying: Boolean,
     isCueActive: Boolean,
     isSyncActive: Boolean,
+    phraseSyncActive: Boolean,
+    quantizeActive: Boolean,
+    snapActive: Boolean,
     onPlayPause: () -> Unit,
     onCuePress: () -> Unit,
     onCueRelease: () -> Unit,
     onSync: () -> Unit,
+    onPhraseSyncToggle: () -> Unit,
+    onQuantizeToggle: () -> Unit,
+    onSnapToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -154,46 +160,55 @@ fun TransportBar(
             }
         }
 
-        // 3. CDJ-3000 SYNC / BEAT SYNC Button
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(44.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(if (isSyncActive) CdjCueAmber.copy(alpha = 0.2f) else Color(0xFF1B1E26))
-                .border(
-                    width = 1.2.dp,
-                    color = if (isSyncActive) CdjCueAmber else Color(0xFF303644),
-                    shape = RoundedCornerShape(4.dp)
-                )
-                .clickable { onSync() }
-                .testTag("sync_button_$deckId"),
-            contentAlignment = Alignment.Center
+        // 3. Sync & Quantize/Snap Controls
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Sync,
-                    contentDescription = "Sync",
-                    tint = if (isSyncActive) CdjCueAmber else Color(0xFF8C93A4),
-                    modifier = Modifier.size(16.dp)
+                // BEAT SYNC Button
+                TransportButton(
+                    title = "BEAT SYNC",
+                    subtitle = if (isSyncActive) "ON" else "OFF",
+                    isActive = isSyncActive,
+                    activeColor = CdjCueAmber,
+                    onClick = onSync,
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
                 )
-                Column {
-                    Text(
-                        text = "BEAT SYNC",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black,
-                        fontFamily = FontFamily.Monospace,
-                        color = if (isSyncActive) CdjCueAmber else Color.White
-                    )
-                    Text(
-                        text = if (isSyncActive) "MASTER SYNC" else "INSTANT",
-                        fontSize = 7.sp,
-                        color = if (isSyncActive) CdjCueAmber else Color(0xFF6B7280)
-                    )
-                }
+                // PHRASE SYNC Button
+                TransportButton(
+                    title = "PHRASE SYNC",
+                    subtitle = if (phraseSyncActive) "ON" else "OFF",
+                    isActive = phraseSyncActive,
+                    activeColor = CdjWaveformHighBlue,
+                    onClick = onPhraseSyncToggle,
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
+                )
+            }
+            
+            Column(
+                modifier = Modifier.width(44.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // QUANTIZE Button
+                TransportButton(
+                    title = "Q",
+                    isActive = quantizeActive,
+                    activeColor = CdjPlayGreen,
+                    onClick = onQuantizeToggle,
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
+                )
+                // SNAP Button
+                TransportButton(
+                    title = "S",
+                    isActive = snapActive,
+                    activeColor = CdjPlayGreen,
+                    onClick = onSnapToggle,
+                    modifier = Modifier.fillMaxWidth().height(26.dp)
+                )
             }
         }
     }

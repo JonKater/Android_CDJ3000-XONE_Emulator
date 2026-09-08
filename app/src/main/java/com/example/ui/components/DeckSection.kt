@@ -35,6 +35,9 @@ fun DeckSection(
     onCuePress: () -> Unit,
     onCueRelease: () -> Unit,
     onSync: () -> Unit,
+    onPhraseSyncToggle: () -> Unit,
+    onQuantizeToggle: () -> Unit,
+    onSnapToggle: () -> Unit,
     onHotCueTrigger: (Int) -> Unit,
     onHotCueClear: (Int) -> Unit,
     onJogTouch: (deltaAngle: Float, dtSec: Float) -> Unit,
@@ -85,6 +88,10 @@ fun DeckSection(
             height = 80.dp,
             pitchPercent = deckState.pitchPercent.toFloat(),
             quantizeActive = deckState.quantizeActive,
+            snapActive = deckState.snapActive,
+            phraseSyncActive = deckState.phraseSyncActive,
+            phraseBeat = deckState.phraseBeat,
+            phraseBar = deckState.phraseBar,
             masterTempoActive = deckState.isKeyLocked,
             slipActive = deckState.slipModeActive
         )
@@ -153,10 +160,16 @@ fun DeckSection(
             isPlaying = deckState.isPlaying,
             isCueActive = deckState.isCueActive,
             isSyncActive = deckState.isSyncActive,
+            phraseSyncActive = deckState.phraseSyncActive,
+            quantizeActive = deckState.quantizeActive,
+            snapActive = deckState.snapActive,
             onPlayPause = onPlayPause,
             onCuePress = onCuePress,
             onCueRelease = onCueRelease,
-            onSync = onSync
+            onSync = onSync,
+            onPhraseSyncToggle = onPhraseSyncToggle,
+            onQuantizeToggle = onQuantizeToggle,
+            onSnapToggle = onSnapToggle
         )
     }
 }

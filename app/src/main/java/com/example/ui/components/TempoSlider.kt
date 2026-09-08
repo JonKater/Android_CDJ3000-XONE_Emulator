@@ -46,6 +46,9 @@ fun TempoSlider(
     modifier: Modifier = Modifier,
     height: Dp = 145.dp
 ) {
+    val currentPitchPercent by rememberUpdatedState(pitchPercent)
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+
     Column(
         modifier = modifier.testTag("tempo_slider_$deckId"),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -134,11 +137,14 @@ fun TempoSlider(
                 .width(38.dp)
                 .height(height)
                 .pointerInput(deckId) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragStart = { dragAccumulator = currentPitchPercent }
+                    ) { change, dragAmount ->
                         change.consume()
                         // Moving down increases tempo (+)
                         val deltaPercent = (dragAmount.y / size.height) * (pitchRange * 2.0f)
-                        var newP = (pitchPercent + deltaPercent).coerceIn(-pitchRange, pitchRange)
+                        dragAccumulator += deltaPercent
+                        var newP = dragAccumulator.coerceIn(-pitchRange, pitchRange)
                         if (abs(newP) < 0.15f) newP = 0.0f // Center detent snap
                         onPitchChange(newP)
                     }

@@ -32,10 +32,8 @@ fun RotaryKnob(
     centerDetent: Boolean = true,
     displayValue: String? = null
 ) {
-    var dragAccumulator by remember { mutableFloatStateOf(value) }
-    LaunchedEffect(value) {
-        dragAccumulator = value
-    }
+    val currentValue by rememberUpdatedState(value)
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
 
     Column(
         modifier = modifier,
@@ -57,15 +55,17 @@ fun RotaryKnob(
                 .size(size)
                 .testTag("knob_${label.lowercase()}")
                 .pointerInput(Unit) {
-                    detectDragGestures { change, dragAmount ->
+                    detectDragGestures(
+                        onDragStart = { dragAccumulator = currentValue }
+                    ) { change, dragAmount ->
                         change.consume()
                         // Vertical drag: dragging up increases value, dragging down decreases
                         val delta = -dragAmount.y * 0.006f
-                        var newVal = (dragAccumulator + delta).coerceIn(0.0f, 1.0f)
+                        dragAccumulator += delta
+                        var newVal = dragAccumulator.coerceIn(0.0f, 1.0f)
                         if (centerDetent && abs(newVal - 0.5f) < 0.035f) {
                             newVal = 0.5f
                         }
-                        dragAccumulator = newVal
                         onValueChange(newVal)
                     }
                 },
